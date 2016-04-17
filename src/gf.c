@@ -111,15 +111,15 @@ static int8_t jl_cachearg_offset(jl_methtable_t *mt)
 
 /// ----- Insertion logic for special entries ----- ///
 
-JL_DLLEXPORT jl_typemap_entry_t *jl_tfunc_cache_insert(jl_method_t *m, jl_tupletype_t *type,
-                                                        jl_value_t *value, int8_t offs)
+JL_DLLEXPORT jl_typemap_entry_t *jl_specializations_insert(jl_method_t *m, jl_tupletype_t *type,
+                                                           jl_value_t *value)
 {
-    return jl_typemap_insert(&m->tfunc, (jl_value_t*)m, type, jl_emptysvec, NULL, jl_emptysvec, value, offs, &tfunc_cache, NULL);
+    return jl_typemap_insert(&m->specializations, (jl_value_t*)m, type, jl_emptysvec, NULL, jl_emptysvec, value, /*offs*/0, &tfunc_cache, NULL);
 }
 
-JL_DLLEXPORT jl_value_t *jl_tfunc_cache_lookup(jl_method_t *m, jl_tupletype_t *type, int8_t offs)
+JL_DLLEXPORT jl_value_t *jl_specializations_lookup(jl_method_t *m, jl_tupletype_t *type)
 {
-    jl_typemap_entry_t *sf = jl_typemap_assoc_by_type(m->tfunc, type, NULL, 1, 0, offs);
+    jl_typemap_entry_t *sf = jl_typemap_assoc_by_type(m->specializations, type, NULL, 1, /*subtype*/0, /*offs*/0);
     if (!sf)
         return jl_nothing;
     return sf->func.value;
@@ -127,7 +127,7 @@ JL_DLLEXPORT jl_value_t *jl_tfunc_cache_lookup(jl_method_t *m, jl_tupletype_t *t
 
 JL_DLLEXPORT jl_value_t *jl_methtable_lookup(jl_methtable_t *mt, jl_tupletype_t *type)
 {
-    jl_typemap_entry_t *sf = jl_typemap_assoc_by_type(mt->defs, type, NULL, 1, 0, 0);
+    jl_typemap_entry_t *sf = jl_typemap_assoc_by_type(mt->defs, type, NULL, 1, /*subtype*/0, /*offs*/0);
     if (!sf)
         return jl_nothing;
     return sf->func.value;
@@ -222,17 +222,16 @@ void jl_type_infer(jl_lambda_info_t *li, int force)
 #endif
 }
 
+static int get_spec_unspec_list(jl_typemap_entry_t *l, void *closure)
+{
+    if (jl_is_lambda_info(l->func.value) && !l->func.linfo->inferred)
+        jl_cell_1d_push((jl_array_t*)closure, (jl_value_t*)l->func.linfo);
+    return 1;
+}
+
 static int get_method_unspec_list(jl_typemap_entry_t *def, void *closure)
 {
-    jl_array_t *spec = def->func.method->specializations;
-    if (spec == NULL)
-        return 1;
-    size_t i, l;
-    for (i = 0, l = jl_array_len(spec); i < l; i++) {
-        jl_value_t *li = jl_cellref(spec, i);
-        if (jl_is_lambda_info(li) && !((jl_lambda_info_t*)li)->inferred)
-            jl_cell_1d_push((jl_array_t*)closure, li);
-    }
+    jl_typemap_visitor(def->func.method->specializations, get_spec_unspec_list, closure);
     return 1;
 }
 
@@ -610,46 +609,21 @@ static jl_lambda_info_t *cache_method(jl_methtable_t *mt, union jl_typemap_t *ca
         origtype = NULL;
     }
 
-    // here we infer types and specialize the method
-    jl_array_t *lilist=NULL;
-    jl_lambda_info_t *li=NULL;
-    if (definition->specializations != NULL) {
-        // reuse code already generated for this combination of lambda and
-        // arguments types. this happens for inner generic functions where
-        // a new closure is generated on each call to the enclosing function.
-        lilist = definition->specializations;
-        int k;
-        for(k=0; k < lilist->nrows; k++) {
-            li = (jl_lambda_info_t*)jl_cellref(lilist, k);
-            if (jl_types_equal((jl_value_t*)li->specTypes, (jl_value_t*)type))
-                break;
+    // get a specialized version of the method (or reuse an existing one)
+    if (definition->specializations.unknown != jl_nothing) {
+        jl_value_t *li = jl_specializations_lookup(definition, type);
+        if (jl_typeof(li) == (jl_value_t*)jl_lambda_info_type) {
+            newmeth = (jl_lambda_info_t*)li;
         }
-        if (k == lilist->nrows) lilist=NULL;
     }
+    if (newmeth == NULL)
+        newmeth = jl_get_specialized(definition, type, sparams);
 
-    if (lilist != NULL && !li->inInference) {
-        assert(li);
-        newmeth = li;
-        jl_typemap_insert(cache, parent, type, jl_emptysvec, origtype, guardsigs, (jl_value_t*)newmeth, jl_cachearg_offset(mt), &lambda_cache, NULL);
-        JL_GC_POP();
-        JL_UNLOCK(&codegen_lock);
-        return newmeth;
-    }
-
-    newmeth = jl_get_specialized(definition, type, sparams);
     jl_typemap_insert(cache, parent, type, jl_emptysvec, origtype, guardsigs, (jl_value_t*)newmeth, jl_cachearg_offset(mt), &lambda_cache, NULL);
 
-    if (newmeth->code != NULL) {
-        jl_array_t *spe = definition->specializations;
-        if (spe == NULL) {
-            spe = jl_alloc_cell_1d(1);
-            jl_cellset(spe, 0, newmeth);
-        }
-        else {
-            jl_cell_1d_push(spe, (jl_value_t*)newmeth);
-        }
-        definition->specializations = spe;
-        jl_gc_wb(definition, definition->specializations);
+    if (newmeth->code != NULL && !newmeth->inferred && !newmeth->inInference) {
+        // notify type inference of the new method it should infer
+        jl_specializations_insert(definition, type, (jl_value_t*)newmeth);
         if (jl_options.compile_enabled != JL_OPTIONS_COMPILE_OFF) // don't bother with typeinf if compile is off
             if (jl_symbol_name(definition->name)[0] != '@')  // don't bother with typeinf on macros
                 jl_type_infer(newmeth, 0);
@@ -1353,16 +1327,7 @@ static int _precompile_enq_tfunc(jl_typemap_entry_t *l, void *closure)
 
 static int _precompile_enq_spec(jl_typemap_entry_t *def, void *closure)
 {
-    jl_array_t *spec = def->func.method->specializations;
-    if (spec == NULL)
-        return 1;
-    size_t i, l;
-    for (i = 0, l = jl_array_len(spec); i < l; i++) {
-        jl_value_t *li = jl_cellref(spec, i);
-        if (jl_is_lambda_info(li) && !((jl_lambda_info_t*)li)->functionID)
-            jl_cell_1d_push((jl_array_t*)closure, (jl_value_t*)((jl_lambda_info_t*)li)->specTypes);
-    }
-    jl_typemap_visitor(def->func.method->tfunc, _precompile_enq_tfunc, closure);
+    jl_typemap_visitor(def->func.method->specializations, _precompile_enq_tfunc, closure);
     return 1;
 }
 

@@ -52,6 +52,9 @@ size{N}(B::BitArray{N}, d) = (d>N ? 1 : B.dims[d])
 
 isassigned{N}(B::BitArray{N}, i::Int) = 1 <= i <= length(B)
 
+# Traits for linear indexing
+linearindexing{A<:BitArray}(::Type{A}) = LinearFast()
+
 ## aux functions ##
 
 const _msk64 = ~UInt64(0)

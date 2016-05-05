@@ -98,8 +98,11 @@ for i in bin/*.dll Git/usr/bin/*.dll Git/usr/bin/*.exe; do
     -ousr\\`dirname $i | sed -e 's|/julia||' -e 's|/|\\\\|g'` >> get-deps.log
 done
 for i in share/julia/base/pcre_h.jl; do
-  $SEVENZIP e -y julia-installer.exe "$i" -obase >> get-deps.log
+  $SEVENZIP e -y julia-installer.exe "$i" -obase
 done
+echo $SEVENZIP
+which $SEVENZIP
+ls -AlF base
 echo "override PCRE_INCL_PATH =" >> Make.user
 # suppress "bash.exe: warning: could not find /tmp, please create!"
 mkdir -p usr/Git/tmp
@@ -199,6 +202,7 @@ fi
 echo 'FORCE_ASSERTIONS = 1' >> Make.user
 
 cat Make.user
+ls -AlF base
 make -j3 VERBOSE=1
 make build-stats
 #make debug

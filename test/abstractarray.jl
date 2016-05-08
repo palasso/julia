@@ -254,12 +254,12 @@ end
 
 function test_in_bounds(::Type{TestAbstractArray})
     n = rand(2:5)
-    dims = tuple(rand(2:5, n)...)
-    len = prod(dims)
+    inds = ntuple(d->1:rand(2:5), n)
+    len = prod(map(length, inds))
     for i in 1:len
-        @test checkbounds(Bool, dims, i) == true
+        @test checkbounds(Bool, inds, i) == true
     end
-    @test checkbounds(Bool, dims, len + 1) == false
+    @test checkbounds(Bool, inds, len + 1) == false
 end
 
 type UnimplementedFastArray{T, N} <: AbstractArray{T, N} end
@@ -521,3 +521,44 @@ A = TSlowNIndexes(rand(2,2))
 @test_throws ErrorException A[1]
 @test A[1,1] == A.data[1]
 @test first(A) == A.data[1]
+
+# OffsetArrays (arrays with indexing that doesn't start at 1)
+
+module OAs
+
+immutable OffsetArray{T,N,AA<:AbstractArray} <: AbstractArray{T,N}
+    parent::AA
+    offsets::NTuple{N,Int}
+end
+
+OffsetArray{T,N}(A::AbstractArray{T,N}, offsets::NTuple{N,Int}) = OffsetArray{T,N,typeof(A)}(A, offsets)
+
+Base.parent(A::OffsetArray) = A.parent
+Base.size(A::OffsetArray) = size(parent(A))
+Base.indices(A::OffsetArray, d) = (1:size(parent(A),d))+A.offsets[d]
+Base.eachindex(A::OffsetArray) = CartesianRange(indices(A))
+Base.summary(A::OffsetArray) = string(typeof(A))*" with indices "*string(indices(A))
+
+@inline function Base.getindex{T,N}(A::OffsetArray{T,N}, I::Vararg{Int,N})
+    @boundscheck checkbounds(A, I...)
+    @inbounds ret = parent(A)[offset(A.offsets, I)...]
+    ret
+end
+@inline function Base.setindex!{T,N}(A::OffsetArray{T,N}, val, I::Vararg{Int,N})
+    @boundscheck checkbounds(A, I...)
+    @inbounds parent(A)[offset(A.offsets, I)...] = val
+    val
+end
+
+offset{N}(offsets::NTuple{N,Int}, inds::NTuple{N,Int}) = _offset((), offsets, inds)
+_offset(out, ::Tuple{}, ::Tuple{}) = out
+@inline _offset(out, offsets, inds) = _offset((out..., inds[1]-offsets[1]), Base.tail(offsets), Base.tail(inds))
+
+end
+
+A = OAs.OffsetArray([1 3; 2 4], (-1,2))
+@test A[0,3] == 1
+@test A[1,3] == 2
+@test A[0,4] == 3
+@test A[1,4] == 4
+@test_throws BoundsError A[1,1]

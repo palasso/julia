@@ -31,6 +31,18 @@ Basic functions
        julia> size(A,3,2)
        (4,3)
 
+.. function:: indices(A)
+
+   .. Docstring generated from Julia source
+
+   Returns the tuple of valid indices for array ``A``\ .
+
+.. function:: indices(A, d)
+
+   .. Docstring generated from Julia source
+
+   Returns the valid range of indices for array ``A`` along dimension ``d``\ .
+
 .. function:: iseltype(A,T)
 
    .. Docstring generated from Julia source

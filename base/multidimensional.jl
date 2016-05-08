@@ -204,7 +204,7 @@ _internal_checkbounds(A::AbstractVector, I::AbstractArray{Bool}) = size(A) == si
 for N = 1:5
     args = [:($(Symbol(:I, d))) for d = 1:N]
     targs = [:($(Symbol(:I, d))::Union{Colon,Number,AbstractArray}) for d = 1:N]  # prevent co-opting the CartesianIndex version
-    exs = [:(checkbounds(Bool, size(A, $d), $(args[d]))) for d = 1:N]
+    exs = [:(checkbounds(Bool, indices(A, $d), $(args[d]))) for d = 1:N]
     cbexpr = exs[1]
     for d = 2:N
         cbexpr = :($(exs[d]) & $cbexpr)
@@ -225,11 +225,14 @@ end
 @inline function checkbounds(::Type{Bool}, ::Tuple{}, I1::CartesianIndex)
     checkbounds(Bool, (), I1.I...)
 end
-@inline function checkbounds(::Type{Bool}, sz::Tuple{}, I1::CartesianIndex, I...)
+@inline function checkbounds(::Type{Bool}, inds::Tuple{}, I1::CartesianIndex, I...)
     checkbounds(Bool, (), I1.I..., I...)
 end
-@inline function checkbounds(::Type{Bool}, sz::Dims, I1::CartesianIndex, I...)
-    checkbounds(Bool, sz, I1.I..., I...)
+@inline function checkbounds(::Type{Bool}, inds::Tuple{UnitRange}, I1::CartesianIndex)
+    checkbounds(Bool, inds, I1.I..., I...)
+end
+@inline function checkbounds{N}(::Type{Bool}, inds::NTuple{N,UnitRange}, I1::CartesianIndex, I...)
+    checkbounds(Bool, inds, I1.I..., I...)
 end
 
 # Recursively compute the lengths of a list of indices, without dropping scalars

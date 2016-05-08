@@ -147,25 +147,28 @@ While this is starting to support more of the :ref:`indexing operations supporte
 Abstract Arrays
 ---------------
 
-========================================================== ============================================ =======================================================================================
-Methods to implement                                                                                    Brief description
-========================================================== ============================================ =======================================================================================
-:func:`size(A) <size>`                                                                                  Returns a tuple containing the dimensions of A
-:func:`Base.linearindexing(Type) <Base.linearindexing>`                                                 Returns either ``Base.LinearFast()`` or ``Base.LinearSlow()``. See the description below.
-:func:`getindex(A, i::Int) <getindex>`                                                                  (if ``LinearFast``) Linear scalar indexing
-:func:`getindex(A, I::Vararg{Int, N}) <getindex>`                                                       (if ``LinearSlow``, where ``N = ndims(A)``) N-dimensional scalar indexing
-:func:`setindex!(A, v, i::Int) <getindex>`                                                              (if ``LinearFast``) Scalar indexed assignment
-:func:`setindex!(A, v, I::Vararg{Int, N}) <getindex>`                                                   (if ``LinearSlow``, where ``N = ndims(A)``) N-dimensional scalar indexed assignment
-**Optional methods**                                       **Default definition**                       **Brief description**
-:func:`getindex(A, I...) <getindex>`                       defined in terms of scalar :func:`getindex`  :ref:`Multidimensional and nonscalar indexing <man-array-indexing>`
-:func:`setindex!(A, I...) <setindex!>`                     defined in terms of scalar :func:`setindex!` :ref:`Multidimensional and nonscalar indexed assignment <man-array-indexing>`
-:func:`start`/:func:`next`/:func:`done`                    defined in terms of scalar :func:`getindex`  Iteration
-:func:`length(A) <length>`                                 ``prod(size(A))``                            Number of elements
-:func:`similar(A) <similar>`                               ``similar(A, eltype(A), size(A))``           Return a mutable array with the same shape and element type
-:func:`similar(A, ::Type{S}) <similar>`                    ``similar(A, S, size(A))``                   Return a mutable array with the same shape and the specified element type
-:func:`similar(A, dims::NTuple{Int}) <similar>`            ``similar(A, eltype(A), dims)``              Return a mutable array with the same element type and the specified dimensions
-:func:`similar(A, ::Type{S}, dims::NTuple{Int}) <similar>` ``Array(S, dims)``                           Return a mutable array with the specified element type and dimensions
-========================================================== ============================================ =======================================================================================
+===================================================================== ============================================ =======================================================================================
+Methods to implement                                                                                               Brief description
+===================================================================== ============================================ =======================================================================================
+:func:`size(A) <size>`                                                                                             Returns a tuple containing the dimensions of ``A``
+:func:`getindex(A, i::Int) <getindex>`                                                                             (if ``LinearFast``) Linear scalar indexing
+:func:`getindex(A, I::Vararg{Int, N}) <getindex>`                                                                  (if ``LinearSlow``, where ``N = ndims(A)``) N-dimensional scalar indexing
+:func:`setindex!(A, v, i::Int) <setindex!>`                                                                        (if ``LinearFast``) Scalar indexed assignment
+:func:`setindex!(A, v, I::Vararg{Int, N}) <setindex!>`                                                             (if ``LinearSlow``, where ``N = ndims(A)``) N-dimensional scalar indexed assignment
+**Optional methods**                                                  **Default definition**                       **Brief description**
+:func:`Base.linearindexing(Type) <Base.linearindexing>`               ``Base.LinearSlow()``                        Returns either ``Base.LinearFast()`` or ``Base.LinearSlow()``. See the description below.
+:func:`indices(A, d) <indices>`                                       ``1:size(A, d)``                             Returns the range of valid indices along dimension ``d``
+:func:`getindex(A, I...) <getindex>`                                  defined in terms of scalar :func:`getindex`  :ref:`Multidimensional and nonscalar indexing <man-array-indexing>`
+:func:`setindex!(A, I...) <setindex!>`                                defined in terms of scalar :func:`setindex!` :ref:`Multidimensional and nonscalar indexed assignment <man-array-indexing>`
+:func:`start`/:func:`next`/:func:`done`                               defined in terms of scalar :func:`getindex`  Iteration
+:func:`length(A) <length>`                                            ``prod(size(A))``                            Number of elements
+:func:`similar(A) <similar>`                                          ``similar(A, eltype(A), indices(A))``        Return a mutable array with the same shape and element type
+:func:`similar(A, ::Type{S}) <similar>`                               ``similar(A, S, indices(A))``                Return a mutable array with the same shape and the specified element type
+:func:`similar(A, inds::NTuple{UnitRange{Int}}) <similar>`            ``similar(A, eltype(A), inds)``              Return a mutable array with the same element type and the specified indices
+:func:`similar(A, dims::NTuple{Int}) <similar>`                       ``similar(A, eltype(A), dims)``              Return a mutable array with the same element type and size `dims`
+:func:`similar(A, ::Type{S}, inds::NTuple{UnitRange{Int}}) <similar>` ``Array(S, map(length, inds))``              Return a mutable array with the specified element type and indices
+:func:`similar(A, ::Type{S}, dims::NTuple{Int}) <similar>`            ``Array(S, dims)``                           Return a mutable array with the specified element type and size
+===================================================================== ============================================ =======================================================================================
 
 If a type is defined as a subtype of ``AbstractArray``, it inherits a very large set of rich behaviors including iteration and multidimensional indexing built on top of single-element access.  See the :ref:`arrays manual page <man-arrays>` and :ref:`standard library section <stdlib-arrays>` for more supported methods.
 

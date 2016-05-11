@@ -26,13 +26,19 @@ size(x, d1::Integer, d2::Integer, dx::Integer...) = tuple(size(x, d1), size(x, d
 
 Returns the valid range of indices for array `A` along dimension `d`.
 """
-indices(A::AbstractArray, d) = 1:size(A,d)
+function indices(A::AbstractArray, d)
+    @_inline_meta
+    1:size(A,d)
+end
 """
     indices(A)
 
 Returns the tuple of valid indices for array `A`.
 """
-indices{T,N}(A::AbstractArray{T,N}) = ntuple(d->indices(A, d), Val{N})
+function indices{T,N}(A::AbstractArray{T,N})
+    @_inline_meta
+    ntuple(d->indices(A, d), Val{N})
+end
 eltype{T}(::Type{AbstractArray{T}}) = T
 eltype{T,n}(::Type{AbstractArray{T,n}}) = T
 elsize{T}(::AbstractArray{T}) = sizeof(T)

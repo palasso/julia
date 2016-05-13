@@ -1,5 +1,19 @@
 # This file is a part of Julia. License is MIT: http://julialang.org/license
 
+# Bounds checking
+A = rand(3,3,3)
+@test checkbounds(Bool, A, 1, 1, 1) == true
+@test checkbounds(Bool, A, 1, 3, 3) == true
+@test checkbounds(Bool, A, 1, 4, 3) == false
+@test checkbounds(Bool, A, 1, -1, 3) == false
+@test checkbounds(Bool, A, 1, 9) == true     # partial linear indexing
+@test checkbounds(Bool, A, 1, 10) == false     # partial linear indexing
+@test checkbounds(Bool, A, 1) == true
+@test checkbounds(Bool, A, 27) == true
+@test checkbounds(Bool, A, 28) == false
+@test checkbounds(Bool, A, 2, 2, 2, 1) == true
+@test checkbounds(Bool, A, 2, 2, 2, 2) == false
+
 # token type on which to dispatch testing methods in order to avoid potential
 # name conflicts elsewhere in the base test suite
 type TestAbstractArray end
@@ -254,12 +268,13 @@ end
 
 function test_in_bounds(::Type{TestAbstractArray})
     n = rand(2:5)
-    inds = ntuple(d->1:rand(2:5), n)
-    len = prod(map(length, inds))
+    sz = rand(2:5, n)
+    len = prod(sz)
+    A = zeros(sz...)
     for i in 1:len
-        @test checkbounds(Bool, inds, i) == true
+        @test checkbounds(Bool, A, i) == true
     end
-    @test checkbounds(Bool, inds, len + 1) == false
+    @test checkbounds(Bool, A, len + 1) == false
 end
 
 type UnimplementedFastArray{T, N} <: AbstractArray{T, N} end

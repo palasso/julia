@@ -1152,12 +1152,16 @@ isequal(x::Char, y::Integer) = false
 isequal(x::Integer, y::Char) = false
 
 function checkbounds(::Type{Bool}, sz::Integer, i)
-    depwarn("checkbounds(Bool, size(A, d), i) is deprecated, use checkbounds(Bool, indices(A, d), i).", :checkbounds)
+    depwarn("checkbounds(Bool, size(A, d), i) is deprecated, use checkindex(Bool, indices(A, d), i).", :checkbounds)
     checkbounds(Bool, 1:sz, i)
 end
+immutable FakeArray{T,N} <: AbstractArray{T,N}
+    dims::NTuple{N,Int}
+end
+size(A::FakeArray) = A.dims
 function checkbounds{N,T}(::Type{Bool}, sz::NTuple{N,Integer}, I1::T, I...)
-    depwarn("checkbounds(Bool, size(A), I...) is deprecated, use checkbounds(Bool, indices(A), I...).", :checkbounds)
-    checkbounds(Bool, map(s->1:s, sz), I1, I...)
+    depwarn("checkbounds(Bool, size(A), I...) is deprecated, use checkbounds(Bool, A, I...).", :checkbounds)
+    checkbounds(Bool, FakeArray(sz), I1, I...)
 end
 
 # During the 0.5 development cycle, do not add any deprecations below this line

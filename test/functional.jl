@@ -192,7 +192,7 @@ end
 @test isempty(Base.product(1:2,1:0,1:10))
 @test isempty(Base.product(1:2,1:10,1:0))
 @test isempty(Base.product(1:0,1:2,1:10))
-@test collect(Base.product(1:2,3:4)) == [(1,3),(2,3),(1,4),(2,4)]
+@test collect(Base.product(1:2,3:4)) == [(1,3) (1,4); (2,3) (2,4)]
 @test isempty(collect(Base.product(1:0,1:2)))
 @test length(Base.product(1:2,1:10,4:6)) == 60
 @test Base.iteratorsize(Base.product(1:2, countfrom(1))) == Base.IsInfinite()

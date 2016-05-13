@@ -193,7 +193,11 @@ end  # IteratorsMD
 
 using .IteratorsMD
 
-# Bounds-checking with CartesianIndex
+## Bounds-checking with CartesianIndex
+# Ambiguity with linear indexing:
+@inline _chkbnds(A::AbstractVector, checked::NTuple{1,Bool}, I::CartesianIndex) = _chkbnds(A, checked, I.I...)
+@inline _chkbnds(A::AbstractArray, checked::NTuple{1,Bool}, I::CartesianIndex) = _chkbnds(A, checked, I.I...)
+# Generic bounds checking
 @inline _chkbnds{T,N}(A::AbstractArray{T,N}, checked::NTuple{N,Bool}, I1::CartesianIndex, I...) = _chkbnds(A, checked, I1.I..., I...)
 @inline _chkbnds{T,N,M}(A::AbstractArray{T,N}, checked::NTuple{M,Bool}, I1::CartesianIndex, I...) = _chkbnds(A, checked, I1.I..., I...)
 

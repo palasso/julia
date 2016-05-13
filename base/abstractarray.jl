@@ -35,10 +35,17 @@ end
 
 Returns the tuple of valid indices for array `A`.
 """
-function indices{T,N}(A::AbstractArray{T,N})
+indices{T,N}(A::AbstractArray{T,N}) = _indices((), A)
+_indices{T,N}(out::NTuple{N}, A::AbstractArray{T,N}) = out
+function _indices(out, A::AbstractArray)
     @_inline_meta
-    ntuple(d->indices(A, d), Val{N})
+    _indices((out..., indices(A, length(out)+1)), A)
 end
+# This simpler implementation suffers from #16327
+# function indices{T,N}(A::AbstractArray{T,N})
+#     @_inline_meta
+#     ntuple(d->indices(A, d), Val{N})
+# end
 eltype{T}(::Type{AbstractArray{T}}) = T
 eltype{T,n}(::Type{AbstractArray{T,n}}) = T
 elsize{T}(::AbstractArray{T}) = sizeof(T)
@@ -147,8 +154,18 @@ function checkbounds(::Type{Bool}, A::AbstractArray, I...)
 end
 # Single logical array indexing:
 _chkbnds(A::AbstractArray, ::NTuple{1,Bool}, I::AbstractArray{Bool}) = indices(A) == indices(I)
-_chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I::AbstractVector{Bool}) = indices(A) == indices(I)
 _chkbnds(A::AbstractArray, ::NTuple{1,Bool}, I::AbstractVector{Bool}) = length(A) == length(I)
+_chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I::AbstractArray{Bool}) = length(A) == length(I)
+_chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I::AbstractVector{Bool}) = indices(A) == indices(I)
+# Linear indexing:
+function _chkbnds(A::AbstractVector, ::NTuple{1,Bool}, I)
+    @_inline_meta
+    checkindex(Bool, indices(A, 1), I)
+end
+function _chkbnds(A::AbstractArray, ::NTuple{1,Bool}, I)
+    @_inline_meta
+    checkindex(Bool, 1:length(A), I)
+end
 # When all indices have been checked:
 _chkbnds{M}(A, checked::NTuple{M,Bool}) = checked[M]
 # When the number of indices matches the array dimensionality:

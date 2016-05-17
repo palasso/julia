@@ -2941,6 +2941,7 @@ f(x) = yt(x)
 ;; only possible returned values.
 (define (compile-body e vi lam)
   (let ((code '())
+        (arg-map #f)          ;; map arguments to new names if they are assigned
         (label-counter 0)     ;; counter for generating label addresses
         (label-map (table))   ;; maps label names to generated addresses
         (label-level (table)) ;; exception handler level of each label
@@ -2967,8 +2968,8 @@ f(x) = yt(x)
             (emit `(leave ,handler-level))
             (emit `(return ,(or tmp x))))
           (emit `(return ,x))))
-    (define (new-mutable-var)
-      (let ((g (gensy)))
+    (define (new-mutable-var . name)
+      (let ((g (if (null? name) (gensy) (named-gensy (car name)))))
         (set-car! (lam:vinfo lam) (append (car (lam:vinfo lam)) `((,g Any 2))))
         g))
     ;; evaluate the arguments of a call, creating temporary locations as needed
@@ -3021,10 +3022,13 @@ f(x) = yt(x)
     (define (compile e break-labels value tail)
       (if (or (not (pair? e)) (memq (car e) '(null ssavalue quote inert top core copyast the_exception $
                                                    globalref cdecl stdcall fastcall thiscall)))
-          (cond (tail  (emit-return e))
-                (value e)
-                ((symbol? e) (emit e) #f)  ;; keep symbols for undefined-var checking
-                (else #f))
+          (let ((e (if (and arg-map (symbol? e))
+                       (get arg-map e e)
+                       e)))
+            (cond (tail  (emit-return e))
+                  (value e)
+                  ((symbol? e) (emit e) #f)  ;; keep symbols for undefined-var checking
+                  (else #f)))
           (case (car e)
             ((call new)
              (let* ((ccall? (and (eq? (car e) 'call) (equal? (cadr e) '(core ccall))))
@@ -3039,16 +3043,20 @@ f(x) = yt(x)
                      ((eq? (car e) 'new) #f)
                      (else (emit callex)))))
             ((=)
-             (let ((rhs (compile (caddr e) break-labels #t #f)))
+             (let* ((rhs (compile (caddr e) break-labels #t #f))
+                    (lhs (cadr e))
+                    (lhs (if (and arg-map (symbol? lhs))
+                             (get arg-map lhs lhs)
+                             lhs)))
                (if value
                    (let ((rr (if (or (atom? rhs) (ssavalue? rhs) (eq? (car rhs) 'null))
                                  rhs (make-ssavalue))))
                      (if (not (eq? rr rhs))
                          (emit `(= ,rr ,rhs)))
-                     (emit `(= ,(cadr e) ,rr))
+                     (emit `(= ,lhs ,rr))
                      (if tail (emit-return rr))
                      rr)
-                   (emit `(= ,(cadr e) ,rhs)))))
+                   (emit `(= ,lhs ,rhs)))))
             ((block body)
              (let loop ((xs (cdr e)))
                (if (null? (cdr xs))
@@ -3211,6 +3219,14 @@ f(x) = yt(x)
              (error "\"...\" expression outside call"))
             (else
              (error (string "unhandled expr " e))))))
+    ;; introduce new slots for assigned arguments
+    (for-each (lambda (v)
+                (if (vinfo:asgn v)
+                    (begin
+                      (if (not arg-map)
+                          (set! arg-map (table)))
+                      (put! arg-map (car v) (new-mutable-var (car v))))))
+              (list-head vi (length (lam:args lam))))
     (compile e '() #t #t)
     (for-each (lambda (x)
                 (let ((point (car x))
@@ -3227,11 +3243,17 @@ f(x) = yt(x)
                            (set-car! (cdr point) `(leave ,(- hl target-level))))))))
               handler-goto-fixups)
     (let* ((stmts (reverse! code))
-           (di    (definitely-initialized-vars stmts vi)))
-      (cons 'body (filter (lambda (e)
-                            (not (and (pair? e) (eq? (car e) 'newvar)
-                                      (has? di (cadr e)))))
-                          stmts)))))
+           (di    (definitely-initialized-vars stmts vi))
+           (body  (cons 'body (filter (lambda (e)
+                                        (not (and (pair? e) (eq? (car e) 'newvar)
+                                                  (has? di (cadr e)))))
+                                      stmts))))
+      (if arg-map
+          (insert-after-meta
+           body
+           (table.foldl (lambda (k v lst) (cons `(= ,v ,k) lst))
+                        '() arg-map))
+          body))))
 
 ;; find newvar nodes that are unnecessary because (1) the variable is not
 ;; captured, and (2) the variable is assigned before any branches.

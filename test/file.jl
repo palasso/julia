@@ -1097,3 +1097,5 @@ function test_13559()
     rm(fn)
 end
 @unix_only test_13559()
+
+@test_throws ArgumentError mkpath("fakepath",-1)

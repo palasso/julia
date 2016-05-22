@@ -1429,6 +1429,8 @@ hist2d(v::AbstractMatrix, n1::Integer, n2::Integer) =
 hist2d(v::AbstractMatrix, n::Integer) = hist2d(v, n, n)
 hist2d(v::AbstractMatrix) = hist2d(v, sturges(size(v,1)))
 
+@deprecate cell(dims::Integer...) Array{Any}(dims...)
+@deprecate cell(dims::Tuple{Vararg{Integer}}) Array{Any}(dims)
 
 
 # During the 0.5 development cycle, do not add any deprecations below this line

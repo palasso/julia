@@ -237,7 +237,6 @@
             <string>ccall</string>
             <string>cd</string>
             <string>ceil</string>
-            <string>cell</string>
             <string>cfunction</string>
             <string>cglobal</string>
             <string>charwidth</string>

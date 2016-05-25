@@ -119,15 +119,12 @@ export
     Tridiagonal,
     UnitRange,
     UpperTriangular,
-    UTF16String,
-    UTF32String,
     Val,
     VecOrMat,
     Vector,
     VersionNumber,
     WeakKeyDict,
     WorkerConfig,
-    WString,
     Zip,
 
 # Ccall types
@@ -884,10 +881,7 @@ export
     ucfirst,
     unescape_string,
     uppercase,
-    utf16,
-    utf32,
     warn,
-    wstring,
 
 # random numbers
     AbstractRNG,

@@ -126,6 +126,30 @@ end
 (*)(D::Diagonal, A::AbstractMatrix) =
     scale!(similar(A, promote_op(*, eltype(A), eltype(D.diag))), D.diag, A)
 
+function Ac_mul_B(A::AbstractMatrix, D::Diagonal)
+    Ac = similar(A, promote_op(*, eltype(A), eltype(D.diag)), (size(A, 2), size(A, 1)))
+    ctranspose!(Ac, A)
+    A_mul_B!(Ac, D)
+end
+
+function At_mul_B(A::AbstractMatrix, D::Diagonal)
+    Ac = similar(A, promote_op(*, eltype(A), eltype(D.diag)), (size(A, 2), size(A, 1)))
+    transpose!(Ac, A)
+    A_mul_B!(Ac, D)
+end
+
+function A_mul_Bc(D::Diagonal, A::AbstractMatrix)
+    Ac = similar(A, promote_op(*, eltype(A), eltype(D.diag)), (size(A, 2), size(A, 1)))
+    ctranspose!(Ac, A)
+    A_mul_B!(D, Ac)
+end
+
+function A_mul_Bt(D::Diagonal, A::AbstractMatrix)
+    Ac = similar(A, promote_op(*, eltype(A), eltype(D.diag)), (size(A, 2), size(A, 1)))
+    ctranspose!(Ac, A)
+    A_mul_B!(D, Ac)
+end
+
 A_mul_B!(A::Diagonal,B::AbstractMatrix) = scale!(A.diag,B)
 At_mul_B!(A::Diagonal,B::AbstractMatrix)= scale!(A.diag,B)
 Ac_mul_B!(A::Diagonal,B::AbstractMatrix)= scale!(conj(A.diag),B)
